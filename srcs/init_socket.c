@@ -1,5 +1,6 @@
 
 # include <traceroure.h>
+# include <errno.h>
 
 error_t init_socket4()
 {
@@ -19,7 +20,7 @@ error_t init_socket4()
     (int[]){(int)gctx.packetlen}, sizeof(int)) < 0)
     {
         st = ERR_SYSCALL;
-        PRINT_ERROR(MSG_ERROR_SYSCALL, "setsockopt");
+        PRINT_ERROR(MSG_ERROR_SYSCALL, "setsockopt", errno);
     }
 
 error:

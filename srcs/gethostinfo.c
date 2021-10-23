@@ -4,9 +4,10 @@
 # include <ftlibc.h>
 
 # include <sys/socket.h>
+# include <errno.h>
 
-error_t gethostinfo_i32_4(void* inaddr_ptr)
-{ return gethostinfo_str4(inet_ntoa(*(struct in_addr*)inaddr_ptr)); }
+error_t gethostinfo_i32_4(void* inaddr_ptr,  uint8_t* const destdns, uint8_t* const destip)
+{ return gethostinfo_str4(inet_ntoa(*(struct in_addr*)inaddr_ptr), destdns, destip); }
 
 /**
  * 	@brief set in the global context information
@@ -14,7 +15,7 @@ error_t gethostinfo_i32_4(void* inaddr_ptr)
  * 	* The dns (if has) is stored on .dest_dns array
  * 	* The ip is stored on .dest_ip array
 */
-error_t gethostinfo_str4(const char* hostname)
+error_t gethostinfo_str4(const char* hostname, uint8_t* const destdns, uint8_t* const destip)
 {
     error_t st = SUCCESS;
 
@@ -35,7 +36,7 @@ error_t gethostinfo_str4(const char* hostname)
         goto error;
     }
 
-    ft_memcpy((uint8_t*)gctx.dest_dns, res->ai_canonname, ft_strlen(res->ai_canonname));
+    ft_memcpy(destdns, res->ai_canonname, ft_strlen(res->ai_canonname));
 
 		if (res->ai_family != AF_INET)
     {
@@ -52,10 +53,10 @@ error_t gethostinfo_str4(const char* hostname)
     };
 
 	if (inet_ntop(res->ai_family, (const void*)sin_addr,
-    (char*)gctx.dest_ip, ARR_SIZE(gctx.dest_ip)) == 0)
+    destip, ARR_SIZE(gctx.dest_ip)) == 0)
     {
         st = ERR_SYSCALL;
-        PRINT_ERROR(MSG_ERROR_SYSCALL, "inet_ntop");
+        PRINT_ERROR(MSG_ERROR_SYSCALL, "inet_ntop", errno);
     }
 
 error:
@@ -63,12 +64,16 @@ error:
     return st;
 }
 
-error_t gethostinfo_i32_6(void* in6addr_ptr)
+error_t gethostinfo_i32_6(void* in6addr_ptr, uint8_t* const destdns, uint8_t* const destip)
 {
     (void)in6addr_ptr;
+    (void)destdns;
+    (void)destip;
 }
 // set dns & id in global struct for a given hostname
-error_t gethostinfo_str6(const char* hostname)
+error_t gethostinfo_str6(const char* hostname, uint8_t* const destdns, uint8_t* const destip)
 {
     (void)hostname;
+    (void)destdns;
+    (void)destip;
 }

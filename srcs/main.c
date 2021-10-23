@@ -3,7 +3,9 @@
 # include <ftlibc.h>
 
 # include <unistd.h>
-# include <signal.h>
+# include <errno.h>
+# include <sys/select.h>
+# include <stdbool.h>
 
 // Perfect output example:
 /*
@@ -41,6 +43,7 @@ static inline void spetialize_by_version()
 		gctx.gethostinfo_i32 = &gethostinfo_i32_6;
 		gctx.init_socket = &init_socket6;
 		gctx.send_probes = &send_probes6;
+		gctx.print_route = &print_route6;
 	}
 	else
 	{
@@ -49,6 +52,7 @@ static inline void spetialize_by_version()
 		gctx.gethostinfo_i32 = &gethostinfo_i32_4;
 		gctx.init_socket = &init_socket4;
 		gctx.send_probes = &send_probes4;
+		gctx.print_route = &print_route4;
 #ifdef IS_IPV6_SUPORTED
 	}
 #endif
@@ -63,7 +67,7 @@ int		main(int ac, char* av[])
 	spetialize_by_version();
 
 	///TODO: 2) Then av == hostaddr & av + 1 packet size
-	if ((st = gctx.gethostinfo_str(*av)) != SUCCESS)
+	if ((st = gctx.gethostinfo_str(*av, gctx.dest_dns, gctx.dest_ip)) != SUCCESS)
 		goto error;
 
 	if (*(av + 1))
@@ -84,39 +88,72 @@ int		main(int ac, char* av[])
 	if ((st = gctx.init_socket()) != SUCCESS)
 		goto error;
 
-	///TODO: 4) Then init signals + get pid
-	if (signal(SIGALRM, trace_route) == SIG_ERR)
-	{
-		// print invalid syscall
-		st = ERR_SYSCALL;
-		goto error;
-	}
-
 	gctx.progid = getpid() & 0XFFFF;
-
 	gctx.hop_max = OPT_HAS(OPT_END_HOP) ? gctx.parse.opts_args.max_hops : DEFAULT_HOPMAX;
 	gctx.hop = OPT_HAS(OPT_START_HOP) ? gctx.parse.opts_args.initial_hops : 1;
 
-	///TODO: 5) Then start signal sending routine
 	PRINT_HEADER(gctx.dest_dns, gctx.dest_ip, gctx.hop_max, gctx.packetlen);
-
-	trace_route();
 
 	///TODO: 6) In inf loop receive responses & print route (using rules (nb responses ...))
 	static uint8_t recvbuff[MAX_PACKET_LEN];
 	ssize_t receiv_bytes;
 
+	fd_set fdset;
+	fd_set fdset_read;
+	fd_set fdset_write;
+
+	FD_ZERO(&fdset);
+	FD_SET(gctx.sockfd, &fdset);
+
+	bool	is_sendtime = true;
+	size_t	sendcount = 0;
+
 	for ( ; ; )
 	{
-		;;;;;;;
-		// here recv msg
-		// check validity & output route
-		// alarm to send again
-		if (gctx.hop - gctx.hop_max == 0)
-			break ;
+		fdset_read = fdset_write = fdset;
+		if (select(gctx.sockfd, &fdset_read, is_sendtime ? &fdset_write : 0, 0, 0) < 0)
+		{
+			PRINT_ERROR(MSG_ERROR_SYSCALL, "select", errno);
+			goto error;
+		}
+
+		if (is_sendtime)
+		{
+			if (FD_ISSET(gctx.sockfd, &fdset_write))
+			{
+				if (sendcount == 3 + 1) // where 3 is -q option
+				{
+					if (++gctx.hop > gctx.hop_max)
+						goto error;
+					sendcount = 0;
+				}
+
+				for (size_t i = 0 ; i < 16 ; i++) // 16 or -N option
+					gctx.send_probes();
+
+				is_sendtime = false;
+				sendcount++;
+			}
+		}
+
+		if (FD_ISSET(gctx.sockfd, &fdset_read))
+		{
+			if ((st = receive_probe(recvbuff, ARRAYSIZE(recvbuff), &receiv_bytes)) != SUCCESS)
+			{
+				if (st == CONTINUE)
+					continue ;
+				goto error;
+			}
+			if ((st = gctx.print_route(recvbuff, receiv_bytes)) != SUCCESS)
+				goto error;	
+		}
+
+		///TODO: set 'is_sendtime' to true every 5 / 3 secs (1.666666) where 3 can be option -q
+
 	}
 
 error:
+	FD_CLR(gctx.sockfd, &fdset);
 	close(gctx.sockfd);
 	return st;
 }

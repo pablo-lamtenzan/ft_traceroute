@@ -23,8 +23,8 @@ typedef enum	opt
 
 typedef struct	opts_arg
 {
-	uint64_t	initial_hops;			// -f
-	uint64_t	max_hops;				// -m
+	uint64_t	initial_hops;				// -f
+	uint64_t	max_hops;					// -m
 	uint8_t		port;						// -p
 	uint64_t	simultanious_probes;		// -N
 	uint64_t	probes_nb_per_hop;			// -q
