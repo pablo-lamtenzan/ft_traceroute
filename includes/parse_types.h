@@ -29,7 +29,8 @@ typedef struct	opts_arg
 	uint64_t	simultanious_probes;		// -N
 	uint64_t	probes_nb_per_hop;			// -q
 	uint8_t		tos;						// -t
-	/// TODO: -z , -w
+	uint64_t	waitsend;					// -z
+	uint64_t	waitrecv;					// -w
 }				opts_arg_t;
 
 typedef struct	parse

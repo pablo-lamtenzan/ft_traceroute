@@ -1,16 +1,16 @@
 
-# include <traceroure.h>
+# include <traceroute.h>
 # include <errno.h>
 
-error_t init_socket4()
+error_type init_socket4()
 {
-    error_t st = SUCCESS;
+    error_type st = SUCCESS;
 
     ///TODO: I handle only icmp for the moment
     if ((gctx.sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)) < 0)
     {
         st = ERR_SYSCALL;
-        PRINT_ERROR(MSG_ERROR_SYSCALL, "socket");
+        PRINT_ERROR(MSG_ERROR_SYSCALL, "socket", errno);
         goto error;
     }
 
@@ -27,7 +27,7 @@ error:
     return st;
 }
 
-error_t init_socket6()
+error_type init_socket6()
 {
-    
+    return SUCCESS;
 }

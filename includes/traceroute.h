@@ -21,23 +21,25 @@
 # define DEFAULT_PACKETLEN6 80
 #endif
 
-typedef error_t (*gethostinfo_str_t)(const char*, uint8_t* const, uint8_t* const);
-typedef error_t (*gethostinfo_i32_t)(void*, uint8_t* const, uint8_t* const);
-typedef error_t (*init_socket_t)();
+typedef error_type (*gethostinfo_str_t)(const char*, uint8_t* const, int8_t* const);
+typedef error_type (*gethostinfo_i32_t)(void*, uint8_t* const, int8_t* const);
+typedef error_type (*init_socket_t)();
 typedef void	(*send_probe_t)();
-typedef error_t (*print_route_t)(const void* const, ssize_t);
+typedef error_type (*print_route_t)(const void* const, ssize_t);
 
 typedef struct			gcontext
 {
 	struct sockaddr		dest_sockaddr;
-	const uint8_t		dest_dns[NI_MAXHOST];
-	const uint8_t		dest_ip[HOST_NAME_MAX];
+	uint8_t				dest_dns[NI_MAXHOST];
+	uint8_t				dest_ip[HOST_NAME_MAX];
 	size_t				packetlen;
 	int					sockfd;
 	uint16_t			progid;
 	parse_t				parse;
 	uint64_t			hop;
 	uint64_t			hop_max;
+
+	struct timeval		sendtime;
 
 	struct
 	{
@@ -80,7 +82,7 @@ extern gcontext_t gctx;
 
 # define PAYLOADBYTE ((uint8_t)((uint8_t)4 | ((uint8_t)2 << 4)))
 # define PSEUDOINFINITY (~(uint64_t)0UL)
-# define VALIDE_HOST_REPLIES 3
+# define VALIDE_HOST_REPLIES 6
 # define DFT_TIMEOUT_SEC 5
 
 # define OPT_HAS(opt) (gctx.parse.opts & (opt))
@@ -92,21 +94,23 @@ extern gcontext_t gctx;
 
 # define TV_TO_MS(tv) (double)((double)(tv.tv_sec) * 1000.0 + (double)(tv.tv_usec) / 1000.0)
 
-error_t		gethostinfo_str4(const char* hostname, uint8_t* const destdns, uint8_t* const destip);
-error_t		gethostinfo_i32_4(void* ipaddr, uint8_t* const destdns, uint8_t* const destip);
-error_t		init_socket4();
-void		send_probes4();
-error_t		receive_probe(uint8_t* const dest, size_t destlen, ssize_t* const recvbytes);
-error_t		print_route4(const void* const recvbuff, ssize_t bufflen);
+error_type		parse_opts(const char** av[]);
+
+error_type		gethostinfo_str4(const char* hostname, uint8_t* const destdns, int8_t* const destip);
+error_type		gethostinfo_i32_4(void* ipaddr, uint8_t* const destdns, int8_t* const destip);
+error_type		init_socket4();
+void			send_probes4();
+error_type		receive_probe(uint8_t* const dest, size_t destlen, ssize_t* const recvbytes);
+error_type		print_route4(const void* const recvbuff, ssize_t bufflen);
 
 
 #ifdef IS_IPV6_SUPORTED
 
-error_t		gethostinfo_str6(const char* hostname, uint8_t* const destdns, uint8_t* const destip);
-error_t		gethostinfo_i32_6(void* ipaddr, uint8_t* const destdns, uint8_t* const destip);
-error_t		init_socket6();
-void		send_probes6();
-error_t		print_route6(const void* const recvbuff, ssize_t bufflen);
+error_type		gethostinfo_str6(const char* hostname, uint8_t* const destdns, int8_t* const destip);
+error_type		gethostinfo_i32_6(void* ipaddr, uint8_t* const destdns, int8_t* const destip);
+error_type		init_socket6();
+void			send_probes6();
+error_type		print_route6(const void* const recvbuff, ssize_t bufflen);
 
 #endif
 

@@ -1,11 +1,17 @@
 
-# include <traceroure.h>
+# include <traceroute.h>
 # include <ftlibc.h>
 
 # include <unistd.h>
 # include <errno.h>
 # include <sys/select.h>
 # include <stdbool.h>
+
+///TODO: Remove all extra code
+///TODO: Remove extra '*'
+///TODO: Print first hop
+///TODO: Dns resolution
+///TODO: Print last hop (the destination one)
 
 // Perfect output example:
 /*
@@ -28,6 +34,29 @@ traceroute to 42.fr (163.172.250.16), 30 hops max, 60 byte packets
 		printf(__progname " to %s (%s), %lu hops max, %lu byte packets\n",	\
 		dns, ip, maxhops, packsz)											\
 		)
+
+__attribute__((always_inline))
+static inline error_type  check_initial_validity(int ac)
+{
+    error_type st = SUCCESS;
+
+    if (getuid() != 0)
+    {
+        PRINT_ERROR(__progname ": %s\n", "user must be root");
+        st = ERR_USERPRIV;
+        goto error;
+    }
+
+    if (ac == 1)
+    {
+		///TODO: Print usage
+        //PRINT_ERROR("%s", MSG_REQUIRED_DESTINATION);
+        st = ERR_DESTADDR;
+    }
+
+error:
+    return st;
+}
 
 gcontext_t gctx = {
 
@@ -58,16 +87,19 @@ static inline void spetialize_by_version()
 #endif
 }
 
-int		main(int ac, char* av[])
+int		main(int ac, const char* av[])
 {
-	error_t st = SUCCESS;
+	error_type st = SUCCESS;
 
-	///TODO: 1) Parse args
+	++av;
+
+	if ((st = check_initial_validity(ac))
+	|| (st = parse_opts(&av)) != SUCCESS)
+		goto error;
 
 	spetialize_by_version();
 
-	///TODO: 2) Then av == hostaddr & av + 1 packet size
-	if ((st = gctx.gethostinfo_str(*av, gctx.dest_dns, gctx.dest_ip)) != SUCCESS)
+	if ((st = gctx.gethostinfo_str(*av, gctx.dest_dns, (int8_t*)gctx.dest_ip)) != SUCCESS)
 		goto error;
 
 	if (*(av + 1))
@@ -84,7 +116,6 @@ int		main(int ac, char* av[])
 	else
 		gctx.packetlen = OPT_HAS(OPT_IPV6) ? DEFAULT_PACKETLEN6 : DEFAULT_PACKETLEN4;
 
-	///TODO: 3) Then init sockets
 	if ((st = gctx.init_socket()) != SUCCESS)
 		goto error;
 
@@ -94,66 +125,31 @@ int		main(int ac, char* av[])
 
 	PRINT_HEADER(gctx.dest_dns, gctx.dest_ip, gctx.hop_max, gctx.packetlen);
 
-	///TODO: 6) In inf loop receive responses & print route (using rules (nb responses ...))
-	static uint8_t recvbuff[MAX_PACKET_LEN];
-	ssize_t receiv_bytes;
+	static uint8_t	recvbuff[MAX_PACKET_LEN];
+	ssize_t			receiv_bytes;
+	size_t			probescount = 0;
 
-	fd_set fdset;
-	fd_set fdset_read;
-	fd_set fdset_write;
-
-	FD_ZERO(&fdset);
-	FD_SET(gctx.sockfd, &fdset);
-
-	bool	is_sendtime = true;
-	size_t	sendcount = 0;
-
-	for ( ; ; )
+	for ( ; gctx.hop < gctx.hop_max ; )
 	{
-		fdset_read = fdset_write = fdset;
-		if (select(gctx.sockfd, &fdset_read, is_sendtime ? &fdset_write : 0, 0, 0) < 0)
-		{
-			PRINT_ERROR(MSG_ERROR_SYSCALL, "select", errno);
+		gctx.send_probes();
+
+		if ((st = receive_probe(recvbuff, ARRAYSIZE(recvbuff), &receiv_bytes)) != SUCCESS
+		|| (st = gctx.print_route(recvbuff, receiv_bytes)) != CONTINUE)
 			goto error;
-		}
 
-		if (is_sendtime)
+		ft_memset(recvbuff, 0, receiv_bytes);
+
+		//printf(" [DEBUG] probescount (%ld) %% 3 is %ld", probescount + 1, (probescount + 1) % 3);
+		fflush(stdout);
+		if (++probescount % 3 == 0)
 		{
-			if (FD_ISSET(gctx.sockfd, &fdset_write))
-			{
-				if (sendcount == 3 + 1) // where 3 is -q option
-				{
-					if (++gctx.hop > gctx.hop_max)
-						goto error;
-					sendcount = 0;
-				}
-
-				for (size_t i = 0 ; i < 16 ; i++) // 16 or -N option
-					gctx.send_probes();
-
-				is_sendtime = false;
-				sendcount++;
-			}
+			gctx.hop++;
+			printf("\n%lu", gctx.hop);
+			fflush(stdout);
 		}
-
-		if (FD_ISSET(gctx.sockfd, &fdset_read))
-		{
-			if ((st = receive_probe(recvbuff, ARRAYSIZE(recvbuff), &receiv_bytes)) != SUCCESS)
-			{
-				if (st == CONTINUE)
-					continue ;
-				goto error;
-			}
-			if ((st = gctx.print_route(recvbuff, receiv_bytes)) != SUCCESS)
-				goto error;	
-		}
-
-		///TODO: set 'is_sendtime' to true every 5 / 3 secs (1.666666) where 3 can be option -q
-
 	}
 
 error:
-	FD_CLR(gctx.sockfd, &fdset);
 	close(gctx.sockfd);
 	return st;
 }

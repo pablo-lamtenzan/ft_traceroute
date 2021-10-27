@@ -1,9 +1,10 @@
 
-# include <traceroure.h>
+# include <traceroute.h>
 # include <ftlibc.h>
 
 # include <netinet/ip_icmp.h>
 # include <errno.h>
+# include <stdlib.h>
  
 void send_probes_icmp4()
 {
@@ -11,7 +12,6 @@ void send_probes_icmp4()
 
     struct iphdr* const		ip = (struct iphdr*)packet;
     struct icmphdr* const	icp = (struct icmphdr*)(packet + sizeof(*ip));
-    struct timeval* const	tp = (struct timeval*)(packet + sizeof(*ip) + sizeof(*icp));
 
 	*ip = (struct iphdr){
 		.version = 4,
@@ -32,21 +32,20 @@ void send_probes_icmp4()
 		.code = 0,
 		.checksum = 0,
 		.un.echo.id = gctx.progid,
-		.un.echo.sequence = gctx.hop
+		.un.echo.sequence = 0
 	};
 
-	///TODO: Handle < 16bytes payloads
-	if (gettimeofday(tp, NULL) != 0)
+	if (gettimeofday(&gctx.sendtime, NULL) != 0)
 	{
 		PRINT_ERROR(MSG_ERROR_SYSCALL, "gettimeofday", errno);
 		exit(ERR_SYSCALL);
 	}
 
-	ft_memset(packet + sizeof(*ip) + sizeof(*icp) + sizeof(*tp),
-	PAYLOADBYTE, MAX(0, gctx.packetlen - (sizeof(*ip) + sizeof(*icp) + sizeof(*tp))));
+	ft_memset(packet + sizeof(*ip) + sizeof(*icp),
+	PAYLOADBYTE, MAX(0, (ssize_t)(gctx.packetlen - (sizeof(*ip) + sizeof(*icp)))));
 
 	icp->checksum = in_cksum((uint16_t*)(packet + sizeof(*ip)), MAX(sizeof(*icp), gctx.packetlen - sizeof(*ip)));
-
+	
 	const ssize_t sent_bytes = sendto(
 		gctx.sockfd,
 		(const void*)packet,
@@ -63,11 +62,10 @@ void send_probes_icmp4()
 	}
 	else if (sent_bytes != ip->tot_len)
 	{
-		printf(__progname ": wrote %s %ld chars, ret=%ld\n",
+		printf(__progname ": wrote %s %hu chars, ret=%ld\n",
 			   gctx.dest_ip, ip->tot_len, sent_bytes);
 	}
 
-	gctx.packet_transm_nb++;
 }
 
 void send_probes4()
