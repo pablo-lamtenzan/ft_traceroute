@@ -7,11 +7,8 @@
 # include <sys/select.h>
 # include <stdbool.h>
 
-///TODO: Remove all extra code
-///TODO: Remove extra '*'
-///TODO: Print first hop
-///TODO: Dns resolution
-///TODO: Print last hop (the destination one)
+///FIX: Last mesage output and addr
+///TODO: inet_ntop si forbiden
 
 // Perfect output example:
 /*
@@ -34,6 +31,10 @@ traceroute to 42.fr (163.172.250.16), 30 hops max, 60 byte packets
 		printf(__progname " to %s (%s), %lu hops max, %lu byte packets\n",	\
 		dns, ip, maxhops, packsz)											\
 		)
+
+# define PRINT_HOP(hop) (		\
+	printf("\n%2lu", hop)		\
+	)
 
 __attribute__((always_inline))
 static inline error_type  check_initial_validity(int ac)
@@ -69,7 +70,6 @@ static inline void spetialize_by_version()
 	if (OPT_HAS(OPT_IPV6))
 	{
 		gctx.gethostinfo_str = &gethostinfo_str6;
-		gctx.gethostinfo_i32 = &gethostinfo_i32_6;
 		gctx.init_socket = &init_socket6;
 		gctx.send_probes = &send_probes6;
 		gctx.print_route = &print_route6;
@@ -78,7 +78,6 @@ static inline void spetialize_by_version()
 	{
 #endif
 		gctx.gethostinfo_str = &gethostinfo_str4;
-		gctx.gethostinfo_i32 = &gethostinfo_i32_4;
 		gctx.init_socket = &init_socket4;
 		gctx.send_probes = &send_probes4;
 		gctx.print_route = &print_route4;
@@ -129,23 +128,26 @@ int		main(int ac, const char* av[])
 	ssize_t			receiv_bytes;
 	size_t			probescount = 0;
 
+	printf("%2lu", gctx.hop);
+
 	for ( ; gctx.hop < gctx.hop_max ; )
 	{
 		gctx.send_probes();
 
 		if ((st = receive_probe(recvbuff, ARRAYSIZE(recvbuff), &receiv_bytes)) != SUCCESS
-		|| (st = gctx.print_route(recvbuff, receiv_bytes)) != CONTINUE)
+		&& st != CONTINUE)
+			goto error;
+
+		if (st != CONTINUE &&
+		(st = gctx.print_route(recvbuff, receiv_bytes)) != CONTINUE)
 			goto error;
 
 		ft_memset(recvbuff, 0, receiv_bytes);
 
-		//printf(" [DEBUG] probescount (%ld) %% 3 is %ld", probescount + 1, (probescount + 1) % 3);
-		fflush(stdout);
 		if (++probescount % 3 == 0)
 		{
 			gctx.hop++;
-			printf("\n%lu", gctx.hop);
-			fflush(stdout);
+			PRINT_HOP(gctx.hop);
 		}
 	}
 

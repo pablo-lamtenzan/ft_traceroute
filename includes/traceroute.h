@@ -30,6 +30,7 @@ typedef error_type (*print_route_t)(const void* const, ssize_t);
 typedef struct			gcontext
 {
 	struct sockaddr		dest_sockaddr;
+	struct sockaddr		recv_sockaddr;
 	uint8_t				dest_dns[NI_MAXHOST];
 	uint8_t				dest_ip[HOST_NAME_MAX];
 	size_t				packetlen;
@@ -38,41 +39,17 @@ typedef struct			gcontext
 	parse_t				parse;
 	uint64_t			hop;
 	uint64_t			hop_max;
-
 	struct timeval		sendtime;
-
-	struct
-	{
-		uint64_t _packet_per_hop_nb;
-		uint64_t _packet_transm_nb;
-		uint64_t _packet_receiv_nb;
-		uint64_t _packet_error_nb;
-	} gpacket_count;
-	# define packet_per_hop_nb gpacket_count._packet_per_hop_nb
-	# define packet_transm_nb gpacket_count._packet_transm_nb
-	# define packet_receiv_nb gpacket_count._packet_receiv_nb
-	# define packet_error_nb gpacket_count._packet_error_nb
-
-	struct
-	{
-		double _tmin;
-		double _tmax;
-		double _tsum;
-	} gtiming;
-	# define tmin gtiming._tmin
-	# define tmax gtiming._tmax
-	# define tsum gtiming._tsum
+	struct timeval		recvtime;
 
 	struct
 	{
 		gethostinfo_str_t	_gethostinfo_str;
-		gethostinfo_i32_t	_gethostinfo_i32;
 		init_socket_t		_init_socket;
 		send_probe_t		_send_probes;
 		print_route_t		_print_route;
 	} gfamilydependent;
 	# define gethostinfo_str gfamilydependent._gethostinfo_str
-	# define gethostinfo_i32 gfamilydependent._gethostinfo_i32
 	# define init_socket gfamilydependent._init_socket
 	# define send_probes gfamilydependent._send_probes
 	# define print_route gfamilydependent._print_route

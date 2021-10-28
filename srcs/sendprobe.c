@@ -13,11 +13,14 @@ void send_probes_icmp4()
     struct iphdr* const		ip = (struct iphdr*)packet;
     struct icmphdr* const	icp = (struct icmphdr*)(packet + sizeof(*ip));
 
+	if (gctx.packetlen < sizeof(*ip) + sizeof(*icp))
+		gctx.packetlen = sizeof(*ip) + sizeof(*icp);
+
 	*ip = (struct iphdr){
 		.version = 4,
 		.ihl = 5,
 		.tos = OPT_HAS(OPT_TOS) ? gctx.parse.opts_args.tos : 0,
-		.tot_len = MAX(sizeof(*ip) + sizeof(*icp), gctx.packetlen - (sizeof(*ip) + sizeof(*icp))),
+		.tot_len = gctx.packetlen,
 		.id = 0,
 		.frag_off = 0,
 		.ttl = gctx.hop,
@@ -42,14 +45,14 @@ void send_probes_icmp4()
 	}
 
 	ft_memset(packet + sizeof(*ip) + sizeof(*icp),
-	PAYLOADBYTE, MAX(0, (ssize_t)(gctx.packetlen - (sizeof(*ip) + sizeof(*icp)))));
+	PAYLOADBYTE, gctx.packetlen - (sizeof(*ip) + sizeof(*icp)));
 
-	icp->checksum = in_cksum((uint16_t*)(packet + sizeof(*ip)), MAX(sizeof(*icp), gctx.packetlen - sizeof(*ip)));
-	
+	icp->checksum = in_cksum((uint16_t*)(packet + sizeof(*ip)), gctx.packetlen - sizeof(*ip));
+
 	const ssize_t sent_bytes = sendto(
 		gctx.sockfd,
 		(const void*)packet,
-		ip->tot_len,
+		gctx.packetlen,
 		0,
 		(const struct sockaddr*)&gctx.dest_sockaddr,
 		sizeof(const struct sockaddr)

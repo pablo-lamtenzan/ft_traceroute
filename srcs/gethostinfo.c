@@ -49,13 +49,10 @@ error_type gethostinfo_str4(const char* hostname, uint8_t* const destdns, int8_t
 
     const struct in_addr* const sin_addr = &((struct sockaddr_in*)res->ai_addr)->sin_addr; 
 
-    if ((*(struct sockaddr_in*)&gctx.dest_sockaddr).sin_addr.s_addr == 0)
-    {
-        *(struct sockaddr_in*)&gctx.dest_sockaddr = (struct sockaddr_in){
-            .sin_addr.s_addr = sin_addr->s_addr,
-            .sin_family = AF_INET,
-        };
-    }
+    *(struct sockaddr_in*)&gctx.dest_sockaddr = (struct sockaddr_in){
+        .sin_addr.s_addr = sin_addr->s_addr,
+        .sin_family = AF_INET,
+    };
 
 	if (inet_ntop(res->ai_family, (const void*)sin_addr,
     (char* restrict)destip, ARRAYSIZE(gctx.dest_ip)) == 0)

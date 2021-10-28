@@ -1,12 +1,13 @@
 
 # include <traceroute.h>
 # include <errno.h>
+# include <stdbool.h>
 
 # define PRINT_TIMEOUT(symbol) (printf(" %c ", symbol))
 
 error_type receive_probe(uint8_t* const dest, size_t destlen, ssize_t* const recvbytes)
 {
-    error_type st = SUCCESS;
+    error_type	st = SUCCESS;
 
     fd_set fdr;
     FD_ZERO(&fdr);
@@ -19,35 +20,44 @@ error_type receive_probe(uint8_t* const dest, size_t destlen, ssize_t* const rec
 
     for ( ; ; )
     {
-        if (select(gctx.sockfd + 1, &fdr, 0, 0, &waittime) > 0)
+        if (select(gctx.sockfd + 1, &fdr, 0, 0, &waittime) < 0)
         {
-            if (FD_ISSET(gctx.sockfd, &fdr)
-            && (*recvbytes = recvfrom(gctx.sockfd, dest, destlen, 0, 0, 0)) < 0)
+            PRINT_ERROR(MSG_ERROR_SYSCALL, "select", errno);
+            st = ERR_SYSCALL;
+            goto error;
+        }
+
+        if (FD_ISSET(gctx.sockfd, &fdr))
+        {
+            if ((*recvbytes = recvfrom(gctx.sockfd, dest, destlen, 0, (struct sockaddr_in*)&gctx.recv_sockaddr, (socklen_t[]){sizeof(struct sockaddr_in)})) < 0)
             {
                 if (errno == EINTR)
                     continue ;
                 else
                 {
                     st = ERR_SYSCALL;
-                    PRINT_ERROR(MSG_ERROR_SYSCALL, "recvmsg", errno);
-                    goto end;
+                    PRINT_ERROR(MSG_ERROR_SYSCALL, "recvfrom", errno);
+                    
                 }
             }
-        }
-        else if (FD_ISSET(gctx.sockfd, &fdr) == 0)
-        {
-            PRINT_TIMEOUT('*');
-            goto end;
+
+			if (gettimeofday(&gctx.recvtime, NULL) != 0)
+			{
+				PRINT_ERROR(MSG_ERROR_SYSCALL, "gettimeofday", errno);
+				st = ERR_SYSCALL;
+				goto error;
+			}
+			goto error;
         }
         else
         {
-            PRINT_ERROR(MSG_ERROR_SYSCALL, "select", errno);
-            st = ERR_SYSCALL;
-            goto end;
+            PRINT_TIMEOUT('*');
+			st = CONTINUE;
+            goto error;
         }
     }
 
-end:
+error:
     FD_CLR(gctx.sockfd, &fdr);
 	return st;
 }
