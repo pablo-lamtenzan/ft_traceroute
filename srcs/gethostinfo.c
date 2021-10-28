@@ -27,8 +27,8 @@ error_type gethostinfo_str4(const char* hostname, uint8_t* const destdns, int8_t
     struct addrinfo hints = {
         .ai_flags = AI_CANONNAME,
         .ai_family = AF_INET,
-        .ai_socktype = SOCK_RAW,
-        .ai_protocol = IPPROTO_ICMP
+        .ai_socktype = GETSOCKTYPE,
+        .ai_protocol = GETSOCKPROTOCOL
     };
 
     if (getaddrinfo(hostname, 0, &hints, &res) != 0)
@@ -54,6 +54,7 @@ error_type gethostinfo_str4(const char* hostname, uint8_t* const destdns, int8_t
         .sin_family = AF_INET,
     };
 
+    ///TODO: This is forbiden function !!!!
 	if (inet_ntop(res->ai_family, (const void*)sin_addr,
     (char* restrict)destip, ARRAYSIZE(gctx.dest_ip)) == 0)
     {

@@ -69,6 +69,9 @@ extern gcontext_t gctx;
 # define ARRAYSIZE(arr) (sizeof(arr) / sizeof(*arr))
 # define MAX(l, r) ((l) > (r) ? (l) : (r))
 
+# define GETSOCKTYPE (OPT_HAS(OPT_PROBES_UDP | OPT_PROBES_TCP) ? SOCK_DGRAM : SOCK_RAW)
+# define GETSOCKPROTOCOL (OPT_HAS(OPT_PROBES_TCP) ? IPPROTO_TCP : OPT_HAS(OPT_PROBES_UDP) ? IPPROTO_UDP : IPPROTO_ICMP)
+
 # define TV_TO_MS(tv) (double)((double)(tv.tv_sec) * 1000.0 + (double)(tv.tv_usec) / 1000.0)
 
 error_type		parse_opts(const char** av[]);

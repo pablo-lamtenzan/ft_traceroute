@@ -36,6 +36,10 @@ traceroute to 42.fr (163.172.250.16), 30 hops max, 60 byte packets
 	printf("\n%2lu", hop)		\
 	)
 
+# define PRINT_FIRST_HOP(hop) (	\
+	printf("%2lu", hop)	\
+	)
+
 __attribute__((always_inline))
 static inline error_type  check_initial_validity(int ac)
 {
@@ -128,7 +132,7 @@ int		main(int ac, const char* av[])
 	ssize_t			receiv_bytes;
 	size_t			probescount = 0;
 
-	printf("%2lu", gctx.hop);
+	PRINT_FIRST_HOP(gctx.hop);
 
 	for ( ; gctx.hop < gctx.hop_max ; )
 	{

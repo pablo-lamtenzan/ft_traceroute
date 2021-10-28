@@ -6,8 +6,7 @@ error_type init_socket4()
 {
     error_type st = SUCCESS;
 
-    ///TODO: I handle only icmp for the moment
-    if ((gctx.sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)) < 0)
+    if ((gctx.sockfd = socket(AF_INET, GETSOCKTYPE, GETSOCKPROTOCOL)) < 0)
     {
         st = ERR_SYSCALL;
         PRINT_ERROR(MSG_ERROR_SYSCALL, "socket", errno);
