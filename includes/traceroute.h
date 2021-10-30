@@ -38,9 +38,13 @@ typedef struct			gcontext
 	uint16_t			progid;
 	parse_t				parse;
 	uint64_t			hop;
+	uint64_t			probescount;
 	uint64_t			hop_max;
 	struct timeval		sendtime;
 	struct timeval		recvtime;
+	uint8_t				is_timeout;
+	uint16_t			srcport;
+	uint16_t			destport;
 
 	struct
 	{
@@ -57,10 +61,10 @@ typedef struct			gcontext
 
 extern gcontext_t gctx;
 
+# define DEFAULT_PORT 33434
 # define PAYLOADBYTE ((uint8_t)((uint8_t)4 | ((uint8_t)2 << 4)))
 # define PSEUDOINFINITY (~(uint64_t)0UL)
-# define VALIDE_HOST_REPLIES 6
-# define DFT_TIMEOUT_SEC 5
+# define DEFAULT_NBPROBESPERHOP 3
 
 # define OPT_HAS(opt) (gctx.parse.opts & (opt))
 # define OPT_ADD(opt) (gctx.parse.opts |= (opt))
@@ -82,7 +86,9 @@ error_type		init_socket4();
 void			send_probes4();
 error_type		receive_probe(uint8_t* const dest, size_t destlen, ssize_t* const recvbytes);
 error_type		print_route4(const void* const recvbuff, ssize_t bufflen);
-
+void			send_probes_icmp4();
+void			send_probes_udp4();
+void			send_probes_tcp();
 
 #ifdef IS_IPV6_SUPORTED
 

@@ -51,8 +51,8 @@ error_type receive_probe(uint8_t* const dest, size_t destlen, ssize_t* const rec
         }
         else
         {
-            PRINT_TIMEOUT('*');
-			st = CONTINUE;
+            gctx.probescount++;
+            gctx.is_timeout = true;
             goto error;
         }
     }

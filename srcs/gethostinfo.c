@@ -27,7 +27,7 @@ error_type gethostinfo_str4(const char* hostname, uint8_t* const destdns, int8_t
     struct addrinfo hints = {
         .ai_flags = AI_CANONNAME,
         .ai_family = AF_INET,
-        .ai_socktype = GETSOCKTYPE,
+        .ai_socktype = SOCK_RAW,
         .ai_protocol = GETSOCKPROTOCOL
     };
 

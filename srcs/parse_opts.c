@@ -230,8 +230,7 @@ error_type	parse_opts(const char** av[])
     for ( ; (*av)[av_idx] && *(*av)[av_idx] == '-' ; av_idx++)
     {
         bool found = false;
-        for (register size_t opts_idx = 0 ; opts_idx < ARRAYSIZE(opts)
-        ; opts_idx++)
+        for (register size_t opts_idx = 0 ; opts_idx < ARRAYSIZE(opts) ; opts_idx++)
         {
             if (ft_strncmp((*av)[av_idx], opts[opts_idx], OPT_SIZE) == 0)
             {
