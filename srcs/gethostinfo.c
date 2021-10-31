@@ -8,6 +8,7 @@
 
 # include <string.h>
 
+/// Unused
 error_type gethostinfo_i32_4(void* inaddr_ptr,  uint8_t* const destdns, int8_t* const destip)
 { return gethostinfo_str4(inet_ntoa(*(struct in_addr*)inaddr_ptr), destdns, destip); }
 
@@ -23,11 +24,10 @@ error_type gethostinfo_str4(const char* hostname, uint8_t* const destdns, int8_t
 
     struct addrinfo* res = NULL;
 
-    ///TODO: For the moment i gonna just handle ICMP protocol
     struct addrinfo hints = {
         .ai_flags = AI_CANONNAME,
         .ai_family = AF_INET,
-        .ai_socktype = SOCK_RAW,
+        .ai_socktype = OPT_HAS(OPT_PROBES_UDP) ? SOCK_DGRAM : SOCK_RAW,
         .ai_protocol = GETSOCKPROTOCOL
     };
 

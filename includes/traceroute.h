@@ -35,6 +35,7 @@ typedef struct			gcontext
 	uint8_t				dest_ip[HOST_NAME_MAX];
 	size_t				packetlen;
 	int					sockfd;
+	int					sendsockfd;
 	uint16_t			progid;
 	parse_t				parse;
 	uint64_t			hop;
@@ -43,8 +44,8 @@ typedef struct			gcontext
 	struct timeval		sendtime;
 	struct timeval		recvtime;
 	uint8_t				is_timeout;
-	uint16_t			srcport;
-	uint16_t			destport;
+	in_port_t			srcport;
+	in_port_t			destport;
 
 	struct
 	{
@@ -62,8 +63,10 @@ typedef struct			gcontext
 extern gcontext_t gctx;
 
 # define DEFAULT_PORT 33434
+# define DEFAULT_TCPPORT 80
 # define PAYLOADBYTE ((uint8_t)((uint8_t)4 | ((uint8_t)2 << 4)))
 # define PSEUDOINFINITY (~(uint64_t)0UL)
+# define DEFAULT_HOPSTART 1
 # define DEFAULT_NBPROBESPERHOP 3
 
 # define OPT_HAS(opt) (gctx.parse.opts & (opt))
@@ -82,13 +85,17 @@ error_type		parse_opts(const char** av[]);
 
 error_type		gethostinfo_str4(const char* hostname, uint8_t* const destdns, int8_t* const destip);
 error_type		gethostinfo_i32_4(void* ipaddr, uint8_t* const destdns, int8_t* const destip);
-error_type		init_socket4();
+error_type		init_socket4_icmp();
+error_type		init_socket4_udp();
+error_type		init_socket4_tcp();
+
 void			send_probes4();
 error_type		receive_probe(uint8_t* const dest, size_t destlen, ssize_t* const recvbytes);
 error_type		print_route4(const void* const recvbuff, ssize_t bufflen);
 void			send_probes_icmp4();
 void			send_probes_udp4();
 void			send_probes_tcp();
+void			cut_connectiontcp_rst();
 
 #ifdef IS_IPV6_SUPORTED
 

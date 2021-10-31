@@ -99,7 +99,7 @@ static inline void print_unreach(uint8_t code)
     )
 
 # define PRINT_TIMEOUT(symbol) (                        \
-        printf(" %c ", symbol)                          \
+        printf("  %c", symbol)                          \
     )
 
 

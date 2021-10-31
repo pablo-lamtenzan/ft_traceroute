@@ -9,13 +9,15 @@
 
 ///TODO: inet_ntop si forbiden (i think i just can replace by inet_ntoa)
 ///TODO: Makefile relink
-///TODO: End tcp recv management
-///TODO: Correct tcp send
-///TODO: Correct udp send
-///MAYBE: Implement -z -w
-///TODO: -h option
+///TODO: Check for TODO's accross the code
+///TODO: IPV6 management
 
-///TODO: Timestamps are corrupted by ! fam replies
+///TODO: TCP ping & UDP has the same behaviour & don't work as expected
+/// If i set the flag -F for ICMP i got the same behaviour
+
+///MAYBE: Implement -z -w ?
+
+///TODO: Timestamps are corrupted by ! fam replies or something else
 
 # define PRINT_HEADER(dns, ip, maxhops, packsz) (							\
 		printf(__progname " to %s (%s), %lu hops max, %lu byte packets\n",	\
@@ -40,8 +42,7 @@ static inline error_type  check_initial_validity(int ac)
 
     if (ac == 1)
     {
-		///TODO: Print usage
-        //PRINT_ERROR("%s", MSG_REQUIRED_DESTINATION);
+        PRINT_ERROR("%s", MSG_USAGE);
         st = ERR_DESTADDR;
     }
 
@@ -68,7 +69,7 @@ static inline void spetialize_by_version()
 	{
 #endif
 		gctx.gethostinfo_str = &gethostinfo_str4;
-		gctx.init_socket = &init_socket4;
+		gctx.init_socket = OPT_HAS(OPT_PROBES_UDP) ? &init_socket4_udp : OPT_HAS(OPT_PROBES_TCP) ? &init_socket4_tcp : &init_socket4_icmp;
 		gctx.send_probes = OPT_HAS(OPT_PROBES_UDP) ? &send_probes_udp4 : OPT_HAS(OPT_PROBES_TCP) ? &send_probes_tcp : &send_probes_icmp4;
 		gctx.print_route = &print_route4;
 #ifdef IS_IPV6_SUPORTED
@@ -100,7 +101,11 @@ int		main(int ac, const char* av[])
 
 	if (*(av + 1))
 	{
-		///TODO: If is string digit and all this parsing stuff ...
+		if (is_string_digit(*(av + 1)) == false)
+		{
+			PRINT_ERROR(__progname ": %s\n", "packetlen bad format");
+			goto error;
+		}
 		gctx.packetlen = ft_atol(*(av + 1));
 		if (gctx.packetlen > MAX_PACKET_LEN)
 		{
@@ -117,8 +122,8 @@ int		main(int ac, const char* av[])
 
 	gctx.progid = getpid() & 0XFFFF;
 	gctx.hop_max = OPT_HAS(OPT_END_HOP) ? gctx.parse.opts_args.max_hops : DEFAULT_HOPMAX;
-	gctx.hop = OPT_HAS(OPT_START_HOP) ? gctx.parse.opts_args.initial_hops : 1;
-	gctx.parse.opts_args.port = OPT_HAS(OPT_PORT) ? gctx.parse.opts_args.port : DEFAULT_PORT;
+	gctx.hop = OPT_HAS(OPT_START_HOP) ? gctx.parse.opts_args.initial_hops : DEFAULT_HOPSTART;
+	gctx.destport = OPT_HAS(OPT_PORT) ? gctx.parse.opts_args.port : OPT_HAS(OPT_PROBES_TCP) ? DEFAULT_TCPPORT : DEFAULT_PORT;
 	gctx.parse.opts_args.probes_nb_per_hop = OPT_HAS(OPT_NBPKSEND) ? gctx.parse.opts_args.probes_nb_per_hop : DEFAULT_NBPROBESPERHOP;
 
 	PRINT_HEADER(gctx.dest_dns, gctx.dest_ip, gctx.hop_max, gctx.packetlen);
@@ -136,10 +141,13 @@ int		main(int ac, const char* av[])
 
 		ft_memset(recvbuff, 0, receiv_bytes);
 
+		///NOTE: This is forbiden function
 		usleep(1000);
 	}
 
 error:
+	if (OPT_HAS(OPT_PROBES_UDP))
+		close(gctx.sendsockfd);
 	close(gctx.sockfd);
 	return st;
 }

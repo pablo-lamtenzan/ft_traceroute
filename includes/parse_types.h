@@ -18,7 +18,8 @@ typedef enum	opt
 	OPT_IPV6 =		(OPT_IPV4 << 1),		// -6
 	OPT_PROBES_TCP =(OPT_IPV6 << 1),		// -T
 	OPT_PROBES_UDP =(OPT_PROBES_TCP << 1),	// -U
-	OPT_PROBES_ICMP=(OPT_PROBES_UDP << 1)	// -I
+	OPT_PROBES_ICMP=(OPT_PROBES_UDP << 1),	// -I
+	OPT_DONTFRAG =	(OPT_PROBES_ICMP << 1)	// -F
 }				opt_t;
 
 typedef struct	opts_arg
@@ -38,3 +39,6 @@ typedef struct	parse
 	uint16_t		opts;
 	opts_arg_t	opts_args;	
 }				parse_t;
+
+# include <stdbool.h>
+bool            is_string_digit(const char* s);

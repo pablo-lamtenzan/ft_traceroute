@@ -198,9 +198,7 @@ static bool    opt_arg_is_present(register size_t* const av_idx, const char** av
 {
     if ((*av)[++(*av_idx)] == NULL)
     {
-        ///TODO: 
-        printf("[TODO] Usage no args [TODO]\n");
-        //PRINT_ERROR(USAGE_NO_ARG, ++(*av)[*av_idx - 1]);
+        PRINT_ERROR(__progname ": Option `%s\' requires an argument\n", (*av)[*av_idx - 1]);
         return (false);
     }
     return (true);
@@ -212,7 +210,7 @@ error_type	parse_opts(const char** av[])
         "-f", "-m", "-p", "-N",
         "-q", "-t", "-z", "-w",
         "-4", "-6", "-T", "-U",
-        "-I"
+        "-I", "-F"
     };
 
     static const fill_opt_args_t fillers[] = {
