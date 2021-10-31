@@ -87,6 +87,13 @@ int		main(int ac, const char* av[])
 	|| (st = parse_opts(&av)) != SUCCESS)
 		goto error;
 
+	if (OPT_HAS(OPT_HELP))
+	{
+		PRINT_ERROR("%s", MSG_USAGE);
+        st = ERR_DESTADDR;
+		goto error;
+	}
+
 	if ((bool)OPT_HAS(OPT_PROBES_TCP) + (bool)OPT_HAS(OPT_PROBES_UDP) + (bool)OPT_HAS(OPT_PROBES_ICMP) > 1)
 	{
 		PRINT_ERROR(__progname": %s\n", "Incompatible probes types, must select only 1 (ICMP is set by default)");

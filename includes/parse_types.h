@@ -19,7 +19,8 @@ typedef enum	opt
 	OPT_PROBES_TCP =(OPT_IPV6 << 1),		// -T
 	OPT_PROBES_UDP =(OPT_PROBES_TCP << 1),	// -U
 	OPT_PROBES_ICMP=(OPT_PROBES_UDP << 1),	// -I
-	OPT_DONTFRAG =	(OPT_PROBES_ICMP << 1)	// -F
+	OPT_DONTFRAG =	(OPT_PROBES_ICMP << 1),	// -F
+	OPT_HELP =		(OPT_DONTFRAG << 1)		// -h
 }				opt_t;
 
 typedef struct	opts_arg
