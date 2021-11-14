@@ -47,6 +47,7 @@ error_type receive_probe(uint8_t* const dest, size_t destlen, ssize_t* const rec
 				st = ERR_SYSCALL;
 				goto error;
 			}
+
 			goto error;
         }
         else

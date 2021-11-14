@@ -6,18 +6,33 @@
 # include <errno.h>
 # include <sys/select.h>
 # include <stdbool.h>
+# include <time.h>
+# include <stdlib.h>
 
 ///TODO: inet_ntop si forbiden (i think i just can replace by inet_ntoa)
-///TODO: Makefile relink
+
 ///TODO: Check for TODO's accross the code
 ///TODO: IPV6 management
 
-///TODO: TCP ping & UDP has the same behaviour & don't work as expected
+///TODO: ICMP fails if destination is unreachable ( 192.168.1.9 )
+///HOWTOFIX: If a probe only receive !<> replies print and exit (if is dest host)
+
+///TODO: TCP ping don't work as expected
 /// If i set the flag -F for ICMP i got the same behaviour
+
+///TODO: Timeout don't work well ... (from udp output) Why is printing witout reveing the 3rd probe ?!?!!?
+/*
+*** receive back empty packet ***
+ 5  *  10.194.0.17 (10.194.0.17)  13.083ms
+ 6  10.194.0.20 (10.194.0.20)  14.445ms  10.194.0.28 (10.194.0.28)  11.635ms  12.093ms
+ */
 
 ///MAYBE: Implement -z -w ?
 
 ///TODO: Timestamps are corrupted by ! fam replies or something else
+
+///TODO: When i get my ip for tcp checksum the interface can change ...
+/// Use the interface that the docker will provide
 
 # define PRINT_HEADER(dns, ip, maxhops, packsz) (							\
 		printf(__progname " to %s (%s), %lu hops max, %lu byte packets\n",	\
@@ -80,6 +95,8 @@ static inline void spetialize_by_version()
 int		main(int ac, const char* av[])
 {
 	error_type st = SUCCESS;
+
+	srand(time(0));
 
 	++av;
 
@@ -149,7 +166,7 @@ int		main(int ac, const char* av[])
 		ft_memset(recvbuff, 0, receiv_bytes);
 
 		///NOTE: This is forbiden function
-		usleep(1000);
+		// usleep(1000);
 	}
 
 error:

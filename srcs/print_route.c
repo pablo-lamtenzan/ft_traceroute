@@ -30,8 +30,7 @@ static inline double get_timediff()
 	return (TV_TO_MS(gctx.recvtime));
 }
 
-__attribute__ ((always_inline))
-static inline error_type print_iteration(int8_t code)
+static error_type print_iteration(int8_t code)
 {
 	error_type st = SUCCESS;
 
@@ -70,7 +69,8 @@ static inline error_type print_iteration(int8_t code)
 
 	in_addr_t saddr = (*(struct sockaddr_in*)&gctx.recv_sockaddr).sin_addr.s_addr;
 
-	if (findhost(prev, arrhostlen(prev), saddr) == NULL)
+	///TODO: TODO
+	if (1||findhost(prev, arrhostlen(prev), saddr) == NULL)
 	{
 		const size_t	len = arrhostlen(hostarr);
 		host_t*			found;
@@ -120,6 +120,10 @@ static inline error_type print_iteration(int8_t code)
 			}
 		}
 	}
+	else
+	{
+		printf("[DEBUG] Filter has blocked a duplicated from a previous hop\n");
+	}
 end:
 	return st;
 }
@@ -131,9 +135,11 @@ error_type print_route4(const void* const recvbuff, ssize_t bufflen)
 
 	const struct iphdr* const ip = (struct iphdr*)recvbuff;
 
-	if (ip->version == 0 && ismsg_zeroed(recvbuff, bufflen))
+	if (gctx.is_timeout == true)
 	{
-		printf("%s", "*** receive back empty packet ***\n");
+		if (print_iteration(NOCODE) != SUCCESS)
+			st = ERR_SYSCALL;
+		goto error;
 	}
 
 	if (ip->version != 4)
@@ -143,9 +149,11 @@ error_type print_route4(const void* const recvbuff, ssize_t bufflen)
 	{
 		if (bufflen < (ip->ihl * 4) + (uint32_t)sizeof(struct tcphdr))
 			goto error;
-		
+
 		const struct tcphdr* const tcp = (struct tcphdr*)(recvbuff + ip->ihl * 4);
 
+		///TODO: If syn/ack port is open, else if rst port is closed
+		///TODO: Alse i can receive just a syn, port is open (simultaneous open or split handshake connection)
 		if (ip->saddr == (*(struct sockaddr_in*)&gctx.dest_sockaddr).sin_addr.s_addr
 			&& ((tcp->ack && tcp->syn)))
 		{
@@ -187,7 +195,7 @@ error_type print_route4(const void* const recvbuff, ssize_t bufflen)
 				{
 					if (++itearation <= gctx.parse.opts_args.probes_nb_per_hop)
 					{
-						if (print_iteration(icp->code) != SUCCESS)
+						if (print_iteration(NOCODE) != SUCCESS)
 						{
 							st = ERR_SYSCALL;
 							goto error;
@@ -202,8 +210,8 @@ error_type print_route4(const void* const recvbuff, ssize_t bufflen)
 				size_t iphlen = ip->ihl * 4;
 				size_t iphlen_old = ((struct iphdr*)(recvbuff + iphlen + sizeof(*icp)))->ihl * 4;
 				if (((struct icmphdr*)(recvbuff + iphlen + sizeof(*icp) + iphlen_old))->un.echo.id == gctx.progid
-				|| (OPT_HAS(OPT_PROBES_UDP) && ((struct udphdr*)(recvbuff + iphlen + sizeof(*icp) + iphlen_old))->dest == gctx.destport)
-				|| (OPT_HAS(OPT_PROBES_TCP) && ((struct tcphdr*)(recvbuff + iphlen + sizeof(*icp) + iphlen_old))->dest == gctx.destport))
+				|| (OPT_HAS(OPT_PROBES_UDP) && ((struct udphdr*)(recvbuff + iphlen + sizeof(*icp) + iphlen_old))->dest == ntohs(gctx.destport))
+				|| (OPT_HAS(OPT_PROBES_TCP) && ((struct tcphdr*)(recvbuff + iphlen + sizeof(*icp) + iphlen_old))->dest == ntohs(gctx.destport)))
 				{
 					if (icp->code == ICMP_EXC_TTL)
 					{
@@ -216,7 +224,7 @@ error_type print_route4(const void* const recvbuff, ssize_t bufflen)
 				}
 				else
 					{
-						printf("[DEBUG] Ignore packet that is not mine\n");
+						printf("[DEBUG] Ignore packet that is not mine (%d - %d)\n", ((struct udphdr*)(recvbuff + iphlen + sizeof(*icp) + iphlen_old))->dest, ntohs(gctx.destport));
 					}
 
 				break ;
@@ -248,19 +256,7 @@ error_type print_route4(const void* const recvbuff, ssize_t bufflen)
 				break ;
 		}
 	}
-
-	//printf("[DEBUG] protocol %d, hops: %lu, len %ld\n", ip->protocol, gctx.hop, bufflen);
-
-	//printf("[DEBUG] protocol %d, hops: %lu\n", ((struct iphdr*)(recvbuff + sizeof(*ip) + sizeof(struct udphdr) + 8))->protocol, gctx.hop);
-
-
-	///NOTE: Recv protocol is UDP for UDP and seems to not pass the first node
-	///NOTE: Recv protocol is TCP for TCP and don't pass the first node
-
-	//printf("icmp type: %hu\n", ((struct icmphdr*)(recvbuff + sizeof(*ip)))->type);
-	//printf("ip = %s\n", inet_ntoa((struct in_addr){ip->daddr}));
-
-	
+		///NOTE: TCP still been blocked maybe check NAT(?)
 
 error:
 	return st;

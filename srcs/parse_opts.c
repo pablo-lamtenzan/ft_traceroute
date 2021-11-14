@@ -210,7 +210,7 @@ error_type	parse_opts(const char** av[])
         "-f", "-m", "-p", "-N",
         "-q", "-t", "-z", "-w",
         "-4", "-6", "-T", "-U",
-        "-I", "-F"
+        "-I", "-F", "-h"
     };
 
     static const fill_opt_args_t fillers[] = {
