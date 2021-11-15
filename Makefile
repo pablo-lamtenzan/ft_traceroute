@@ -5,35 +5,33 @@ RM			=		/bin/rm
 
 include				srcs.mk
 
-CFLAGS		=		-Wall -Wextra -Werror
+CFLAGS		=		-Wall -Wextra -Werror -fsanitize=address
 IFLAGS		=		-I$(INCDIR)
 
 OBJS		=		$(patsubst $(SRCDIR)/%.c, $(OBJDIR)/%.o, $(SRCS))
 
-all:				$(NAME)
+all: $(NAME)
+	@:
 
-$(NAME):			$(OBJS)
+$(NAME) : $(OBJDIR) $(OBJS) $(HDRS)
+	@$(CC) -o $(NAME) $(CFLAGS) $(OBJS)
 	@echo LINK $@
-	$(CC) $(OBJS) $(CFLAGS) -o $@
 
 $(OBJDIR):
-	mkdir -p $@
+	@mkdir -p $@
+	@echo MKDIR $@
 
-$(OBJDIR)/%.o:		$(SRCDIR)/%.c $(HDRS) $(OBJDIR)
-	@mkdir -p '$(@D)'
+$(OBJDIR)/%.o : $(SRCDIR)/%.c 
+	@mkdir -p $(shell dirname $@)
+	@$(CC) -c -o $@  $(IFLAGS) $<
 	@echo CC $<
-	@$(CC) $(CFLAGS) $(IFLAGS) -c -o $@ $<
 
 clean:
-	@echo RM $(OBJDIR)
 	@$(RM) -rf $(OBJDIR)
+	@echo RM $(OBJDIR)
 
-fclean:				clean
+fclean: clean
+	@$(RM) -rf $(NAME)
 	@echo RM $(NAME)
-	@$(RM) -f $(NAME)
 
-re:					fclean all
-
-.PHONY:				clean fclean
-
-$(VERBOSE).SILENT:
+re: fclean all
