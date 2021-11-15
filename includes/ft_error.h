@@ -12,7 +12,9 @@ typedef enum	fterror
 	ERR_DESTADDR,
 	ERR_SOCKFAM,
 	ERR_USERPRIV,
-	CONTINUE
+	CONTINUE,
+	KEEP_RCV,
+	DEST_UNREACH
 }				error_type;
 
 # define PRINT_ERROR(format, args...) dprintf(2, format, args)

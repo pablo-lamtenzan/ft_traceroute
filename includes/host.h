@@ -25,3 +25,4 @@ host_t* findhost(host_t *const hostarr, size_t hostarrlen, in_addr_t saddr);
 size_t	arrhostlen(const host_t* const arrhost);
 size_t	timesplen(timestamp_t* const timestaparr);
 bool	print_hostarr(const host_t* const hostarr);
+void	arrhostcpynontimeout(host_t* dest, const host_t* src);

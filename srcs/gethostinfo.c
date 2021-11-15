@@ -54,13 +54,8 @@ error_type gethostinfo_str4(const char* hostname, uint8_t* const destdns, int8_t
         .sin_family = AF_INET,
     };
 
-    ///TODO: This is forbiden function !!!!
-	if (inet_ntop(res->ai_family, (const void*)sin_addr,
-    (char* restrict)destip, ARRAYSIZE(gctx.dest_ip)) == 0)
-    {
-        st = ERR_SYSCALL;
-        PRINT_ERROR(MSG_ERROR_SYSCALL, "inet_ntop", errno);
-    }
+    char* ip = inet_ntoa(((struct sockaddr_in*)res->ai_addr)->sin_addr);
+    ft_memcpy(destip, ip, HOST_NAME_MAX);
 
 error:
     freeaddrinfo(res);

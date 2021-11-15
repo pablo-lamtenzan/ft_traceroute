@@ -14,7 +14,7 @@
 #endif
 
 # define DEFAULT_PACKETLEN4 60
-# define MAX_PACKET_LEN 65000
+# define MAX_PACKET_LEN 0X10000
 # define DEFAULT_HOPMAX 30
 
 #ifdef IS_IPV6_SUPORTED
@@ -43,6 +43,8 @@ typedef struct			gcontext
 	uint64_t			hop_max;
 	struct timeval		sendtime;
 	struct timeval		recvtime;
+	struct timeval		recvtcp;
+	bool				use_recvtcp;
 	uint8_t				is_timeout;
 	in_port_t			srcport;
 	in_port_t			destport;
@@ -98,6 +100,7 @@ void			send_probes_icmp4();
 void			send_probes_udp4();
 void			send_probes_tcp();
 void			cut_connectiontcp_rst();
+error_type		requestportfromkernel4(in_port_t requested, in_port_t* dest, uint8_t protocol);
 
 #ifdef IS_IPV6_SUPORTED
 

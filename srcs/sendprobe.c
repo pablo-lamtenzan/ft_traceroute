@@ -13,6 +13,9 @@
 # include <errno.h>
 # include <stdlib.h>
 
+# define GETRAND_PORT ((rand() + 0XFFFF / 2) % (0XFFFF + 0X1))
+# define GETRAND_TCPSEQ ((rand() + (0X07FFFFFF / 2)) % 0X07FFFFFF)
+
 __attribute__ ((always_inline))
 static inline void init_ip(struct iphdr* const ip, uint8_t protocol)
 {
@@ -29,22 +32,13 @@ static inline void init_ip(struct iphdr* const ip, uint8_t protocol)
 		.saddr = INADDR_ANY,
 		.daddr = (*((struct sockaddr_in*)&gctx.dest_sockaddr)).sin_addr.s_addr
 	};
-
-	if (gettimeofday(&gctx.sendtime, NULL) != 0)
-	{
-		PRINT_ERROR(MSG_ERROR_SYSCALL, "gettimeofday", errno);
-		exit(ERR_SYSCALL);
-	}
 }
 
 __attribute__ ((always_inline))
 static inline void send_packet(const uint8_t* packet, const struct iphdr* const ip)
 {
-	if (OPT_HAS(OPT_PROBES_UDP))
-		(*(struct sockaddr_in*)&gctx.dest_sockaddr).sin_port = htons(gctx.destport);
-
 	const ssize_t sent_bytes = sendto(
-		OPT_HAS(OPT_PROBES_UDP) ? gctx.sendsockfd : gctx.sockfd,
+		OPT_HAS(OPT_PROBES_UDP | OPT_PROBES_TCP) ? gctx.sendsockfd : gctx.sockfd,
 		(const void*)packet,
 		gctx.packetlen,
 		0,
@@ -57,81 +51,51 @@ static inline void send_packet(const uint8_t* packet, const struct iphdr* const 
 		PRINT_ERROR(MSG_ERROR_SYSCALL, "sendto", errno);
 		exit(ERR_SYSCALL);
 	}
-	else if (ip && sent_bytes != ip->tot_len)
+	else if (sent_bytes != ip->tot_len)
 	{
 		printf(__progname ": wrote %s %hu chars, ret=%ld\n",
 			   gctx.dest_ip, ip->tot_len, sent_bytes);
 	}
-}
-
-void send_probes_udp4()
-{
-	uint8_t packet[MAX_PACKET_LEN] = {0};
-
-	struct udphdr* const	udp = (struct udphdr*)packet;
-
-	if (gctx.packetlen < sizeof(*udp))
-		gctx.packetlen = sizeof(*udp);
-
-	///NOTE: Seem like those values are ovewritten by the kernel,
-	/// not a problem yet
-	*udp = (struct udphdr){
-		.source = htons(gctx.srcport),
-		.dest = htons(gctx.destport),
-		.len = htons(gctx.packetlen),
-		.check = 0,
-	};
-
-	if (gctx.destport++ == gctx.parse.opts_args.port + 100)
-		gctx.destport -= 100;
-
-	ft_memset(packet + sizeof(*udp),
-	PAYLOADBYTE, gctx.packetlen - sizeof(*udp));
 
 	if (gettimeofday(&gctx.sendtime, NULL) != 0)
 	{
 		PRINT_ERROR(MSG_ERROR_SYSCALL, "gettimeofday", errno);
 		exit(ERR_SYSCALL);
 	}
-
-	send_packet(packet, NULL);
 }
 
-void cut_connectiontcp_rst()
+/////////
+// UDP //
+/////////
+
+void send_probes_udp4()
 {
 	uint8_t packet[MAX_PACKET_LEN] = {0};
 
-    struct iphdr* const		ip = (struct iphdr*)packet;
-	struct tcphdr* const	tcp = (struct tcphdr*)(packet + sizeof(*ip));
+	struct iphdr* const		ip = (struct iphdr*)packet;
+	struct udphdr* const	udp = (struct udphdr*)(packet + sizeof(*ip));
 
-	if (gctx.packetlen < sizeof(*ip) + sizeof(*tcp))
-		gctx.packetlen = sizeof(*ip) + sizeof(*tcp);
+	if (gctx.packetlen < sizeof(*ip) + sizeof(*udp))
+		gctx.packetlen = sizeof(*ip) + sizeof(*udp);
 
-	*tcp = (struct tcphdr){
-		.source = htons(gctx.srcport),
-		.dest = gctx.destport, /// port allocated previously, already has network's endianess
-		.seq = 0,
-		.ack_seq = 0,
-		.res1 = 0,
-		.doff = sizeof(struct tcphdr) / 4,
-		.fin = 0,
-		.syn = 0,
-		.rst = 1,
-		.psh = 0,
-		.ack = 1,
-		.urg = 0,
-		.res2 = 0,
-		.window = 0,
+	*udp = (struct udphdr){
+		.source = htons(GETRAND_PORT),
+		.dest = htons(++gctx.destport),
+		.len = htons(gctx.packetlen  - sizeof(*ip)),
 		.check = 0,
-		.urg_ptr = 0
 	};
 
-	init_ip(ip, IPPROTO_TCP);
-	ft_memset(packet + sizeof(*ip) + sizeof(*tcp),
-	PAYLOADBYTE, gctx.packetlen - (sizeof(*ip) + sizeof(*tcp)));
-	tcp->check = in_cksum((uint16_t*)packet, gctx.packetlen);
+	if (gctx.destport == gctx.parse.opts_args.port + 100)
+		gctx.destport -= 100;
+
+	init_ip(ip, IPPROTO_UDP);
+	ft_memset(packet + (ip->ihl * 4) + sizeof(*udp), PAYLOADBYTE, gctx.packetlen - ((ip->ihl * 4) + sizeof(*udp)));
 	send_packet(packet, ip);
 }
+
+/////////
+// TCP //
+/////////
 
 in_addr_t get_ip_by_if(const char* ifname)
 {
@@ -146,8 +110,7 @@ in_addr_t get_ip_by_if(const char* ifname)
 	if (ioctl(sfd, SIOCGIFADDR, &ifr) < 0)
 	{
 		/// JUST A TEMP SOLUTION
-		printf("%s\n", strerror(errno));
-		printf("ERROR EXIT");
+		printf("ERROR INTERFACE NOT FOUND EXIT");
 		exit(1);
 	}
 
@@ -187,9 +150,7 @@ uint16_t tcp_checksum(const struct iphdr* const ip)
 
 	/* Calculate the checksum */
 
-	const uint16_t check = in_cksum((uint16_t*)buff, (ptr - buff) + (gctx.packetlen - (ip->ihl * 4)));
-
-	return check;
+	return in_cksum((uint16_t*)buff, (ptr - buff) + (gctx.packetlen - (ip->ihl * 4)));
 }
 
 void set_tcp_options(uint8_t* tcp_opt)
@@ -221,7 +182,21 @@ void set_tcp_options(uint8_t* tcp_opt)
 	*(tcp_opt++) = 2;
 }
 
-void send_probes_tcp()
+__attribute__ ((always_inline))
+static inline in_port_t get_scr_port()
+{
+	in_port_t port;
+
+	for ( ; ; )
+	{
+		if (requestportfromkernel4(GETRAND_PORT, &port, IPPROTO_TCP) != SUCCESS)
+			exit (ERR_SYSCALL);
+		if (port != 0)
+			return port;
+	}
+}
+
+void cut_connectiontcp_rst()
 {
 	uint8_t packet[MAX_PACKET_LEN] = {0};
 
@@ -232,24 +207,21 @@ void send_probes_tcp()
 	if (gctx.packetlen < sizeof(*ip) + sizeof(*tcp) + TCP_OPTIONSLEN)
 		gctx.packetlen = sizeof(*ip) + sizeof(*tcp) + TCP_OPTIONSLEN;
 
-	in_port_t src_port = (rand() + 0XFFFF / 2) % (0XFFFF + 0X1);
-	uint32_t seq = (rand() + (0X07FFFFFF / 2)) % 0X07FFFFFF;
-
 	*tcp = (struct tcphdr){
-		.source = htons(34061),//htons(src_port),
+		.source = htons(gctx.srcport),
 		.dest = htons(gctx.destport),
-		.seq = htonl(2952925273),//htonl(seq),
+		.seq = htonl(GETRAND_TCPSEQ),
 		.ack_seq = 0,
 		.res1 = 0,
-		.doff = (sizeof(struct tcphdr) + TCP_OPTIONSLEN) / 4,
+		.doff = sizeof(struct tcphdr) / 4,
 		.fin = 0,
-		.syn = 1,
-		.rst = 0,
+		.syn = 0,
+		.rst = 1,
 		.psh = 0,
-		.ack = 0,
+		.ack = 1,
 		.urg = 0,
 		.res2 = 0,
-		.window = htons(5840), // random test
+		.window = 0,
 		.check = 0,
 		.urg_ptr = 0
 	};
@@ -262,12 +234,56 @@ void send_probes_tcp()
 	send_packet(packet, ip);
 }
 
+void send_probes_tcp()
+{
+	uint8_t packet[MAX_PACKET_LEN] = {0};
+
+    struct iphdr* const		ip = (struct iphdr*)packet;
+	struct tcphdr* const	tcp = (struct tcphdr*)(packet + sizeof(*ip));
+	uint8_t*				tcp_opt = (uint8_t*)(packet + sizeof(*ip) + sizeof(*tcp));
+
+	if (gctx.packetlen < sizeof(*ip) + sizeof(*tcp) + TCP_OPTIONSLEN)
+		gctx.packetlen = sizeof(*ip) + sizeof(*tcp) + TCP_OPTIONSLEN;
+
+	gctx.srcport = get_scr_port();
+
+	*tcp = (struct tcphdr){
+		.source = htons(gctx.srcport),
+		.dest = htons(gctx.destport),
+		.seq = htonl(GETRAND_TCPSEQ),
+		.ack_seq = 0,
+		.res1 = 0,
+		.doff = (sizeof(struct tcphdr) + TCP_OPTIONSLEN) / 4,
+		.fin = 0,
+		.syn = 1,
+		.rst = 0,
+		.psh = 0,
+		.ack = 0,
+		.urg = 0,
+		.res2 = 0,
+		.window = htons(5840),
+		.check = 0,
+		.urg_ptr = 0
+	};
+
+	set_tcp_options(tcp_opt);
+	init_ip(ip, IPPROTO_TCP);
+	ft_memset(packet + (ip->ihl * 4) + sizeof(*tcp) + TCP_OPTIONSLEN,
+	PAYLOADBYTE, gctx.packetlen - ((ip->ihl * 4) + sizeof(*tcp) + TCP_OPTIONSLEN));
+	tcp->check = tcp_checksum(ip);
+	send_packet(packet, ip);
+}
+
+//////////
+// ICMP //
+//////////
+
 void send_probes_icmp4()
 {
     uint8_t packet[MAX_PACKET_LEN] = {0};
 
     struct iphdr* const		ip = (struct iphdr*)packet;
-    struct icmphdr* const	icp = (struct icmphdr*)(packet + 20); ///TODO: sizeof ip is 20
+    struct icmphdr* const	icp = (struct icmphdr*)(packet + sizeof(*ip));
 
 	if (gctx.packetlen < sizeof(*ip) + sizeof(*icp))
 		gctx.packetlen = sizeof(*ip) + sizeof(*icp);

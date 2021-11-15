@@ -9,30 +9,15 @@
 # include <time.h>
 # include <stdlib.h>
 
-///TODO: inet_ntop si forbiden (i think i just can replace by inet_ntoa)
+///TODO: TEST FLAGS AND FUCNTIONALITY
 
 ///TODO: Check for TODO's accross the code
-///TODO: IPV6 management
 
-///TODO: ICMP fails if destination is unreachable ( 192.168.1.9 )
-///HOWTOFIX: If a probe only receive !<> replies print and exit (if is dest host)
-
-///TODO: TCP ping don't work as expected
-/// If i set the flag -F for ICMP i got the same behaviour
-
-///TODO: Timeout don't work well ... (from udp output) Why is printing witout reveing the 3rd probe ?!?!!?
-/*
-*** receive back empty packet ***
- 5  *  10.194.0.17 (10.194.0.17)  13.083ms
- 6  10.194.0.20 (10.194.0.20)  14.445ms  10.194.0.28 (10.194.0.28)  11.635ms  12.093ms
- */
-
-///MAYBE: Implement -z -w ?
-
-///TODO: Timestamps are corrupted by ! fam replies or something else
+///TODO: I got a filter for duplicates ips ... I guess i must test at 42
 
 ///TODO: When i get my ip for tcp checksum the interface can change ...
 /// Use the interface that the docker will provide
+
 
 # define PRINT_HEADER(dns, ip, maxhops, packsz) (							\
 		printf(__progname " to %s (%s), %lu hops max, %lu byte packets\n",	\
@@ -157,16 +142,15 @@ int		main(int ac, const char* av[])
 
 	for ( ; gctx.hop < gctx.hop_max ; )
 	{
-		gctx.send_probes();
+
+		if (st != KEEP_RCV)
+			gctx.send_probes();
 
 		if ((st = receive_probe(recvbuff, ARRAYSIZE(recvbuff), &receiv_bytes)) != SUCCESS
-		|| (st = gctx.print_route(recvbuff, receiv_bytes)) != CONTINUE)
+		|| (st = gctx.print_route(recvbuff, receiv_bytes)) != CONTINUE && st != KEEP_RCV)
 			goto error;
 
 		ft_memset(recvbuff, 0, receiv_bytes);
-
-		///NOTE: This is forbiden function
-		// usleep(1000);
 	}
 
 error:

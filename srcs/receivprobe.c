@@ -12,6 +12,8 @@ error_type receive_probe(uint8_t* const dest, size_t destlen, ssize_t* const rec
     fd_set fdr;
     FD_ZERO(&fdr);
     FD_SET(gctx.sockfd, &fdr);
+    if (OPT_HAS(OPT_PROBES_TCP))
+        FD_SET(gctx.sendsockfd, &fdr);
 
     struct timeval waittime = (struct timeval){
         .tv_sec = 1,
@@ -45,7 +47,28 @@ error_type receive_probe(uint8_t* const dest, size_t destlen, ssize_t* const rec
 			{
 				PRINT_ERROR(MSG_ERROR_SYSCALL, "gettimeofday", errno);
 				st = ERR_SYSCALL;
-				goto error;
+			}
+
+			goto error;
+        }
+        else if (OPT_HAS(OPT_PROBES_TCP) && FD_ISSET(gctx.sendsockfd, &fdr))
+        {
+            if ((*recvbytes = recvfrom(gctx.sendsockfd, dest, destlen, 0, (struct sockaddr_in*)&gctx.recv_sockaddr, (socklen_t[]){sizeof(struct sockaddr_in)})) < 0)
+            {
+                if (errno == EINTR)
+                    continue ;
+                else
+                {
+                    st = ERR_SYSCALL;
+                    PRINT_ERROR(MSG_ERROR_SYSCALL, "recvfrom", errno);
+                    
+                }
+            }
+
+			if (gettimeofday(&gctx.recvtcp, NULL) != 0)
+			{
+				PRINT_ERROR(MSG_ERROR_SYSCALL, "gettimeofday", errno);
+				st = ERR_SYSCALL;
 			}
 
 			goto error;

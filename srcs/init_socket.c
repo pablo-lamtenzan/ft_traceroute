@@ -4,8 +4,7 @@
 
 # include <unistd.h>
 
-/// Useful to know which port is been used
-static error_type requestportfromkernel4(in_port_t requested, in_port_t* dest, uint8_t protocol)
+error_type requestportfromkernel4(in_port_t requested, in_port_t* dest, uint8_t protocol)
 {
     error_type st = SUCCESS;
 
@@ -57,7 +56,7 @@ error_type init_socket4_tcp()
         goto error;
     }
 
-    if (setsockopt(gctx.sockfd, IPPROTO_IP, IP_HDRINCL,
+    if (setsockopt(gctx.sendsockfd, IPPROTO_IP, IP_HDRINCL,
     (int[]){1}, sizeof(int)) < 0)
     {
         st = ERR_SYSCALL;
@@ -72,7 +71,7 @@ error_type init_socket4_udp()
 {
     error_type st = SUCCESS;
 
-    if ((gctx.sendsockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0
+    if ((gctx.sendsockfd = socket(AF_INET, SOCK_RAW, IPPROTO_UDP)) < 0
     || (gctx.sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)) < 0)
     {
         st = ERR_SYSCALL;
@@ -80,14 +79,12 @@ error_type init_socket4_udp()
         goto error;
     }
 
-    if (setsockopt(gctx.sendsockfd, IPPROTO_IP, IP_TTL,
-    (int[]){++gctx.hop}, sizeof(int)) < 0)
+    if (setsockopt(gctx.sendsockfd, IPPROTO_IP, IP_HDRINCL,
+    (int[]){1}, sizeof(int)) < 0)
     {
         st = ERR_SYSCALL;
         PRINT_ERROR(MSG_ERROR_SYSCALL, "setsockopt", errno);
     }
-
-    st = requestportfromkernel4(0, &gctx.destport, IPPROTO_TCP);
 
 error:
     return st;

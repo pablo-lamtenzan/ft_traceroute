@@ -14,28 +14,29 @@
 	)
 
 __attribute__ ((always_inline))
-static inline bool	ismsg_zeroed(const uint8_t* const msg, ssize_t msglen)
-{
-	size_t sum = 0;
-
-	for (ssize_t i = 0 ; i < msglen ; i++)
-		sum += msg[i];
-	return sum == 0;
-}
-
-__attribute__ ((always_inline))
 static inline double get_timediff()
 {
-	tvsub(&gctx.recvtime, &gctx.sendtime);
-	return (TV_TO_MS(gctx.recvtime));
+	struct timeval tv;
+	
+	if (gctx.use_recvtcp)
+	{
+		tv = gctx.recvtcp;
+		gctx.use_recvtcp = false;
+	}
+	else
+		tv = gctx.recvtime;
+
+	tvsub(&tv, &gctx.sendtime);
+	return (TV_TO_MS(tv));
 }
 
 static error_type print_iteration(int8_t code)
 {
 	error_type st = SUCCESS;
 
-	static host_t hostarr[MAX_HOSTS];
-	static host_t prev[MAX_HOSTS];
+	static host_t	hostarr[MAX_HOSTS];
+	static host_t	prev[MAX_HOSTS];
+	static uint32_t	unreach_raw = 0;
 
 	if (gctx.is_timeout == true)
 	{
@@ -52,25 +53,14 @@ static error_type print_iteration(int8_t code)
 				goto end;
 			ft_memset(hostarr, 0, arrhostlen(hostarr) * sizeof(host_t));
 			gctx.hop++;
-
-			if (OPT_HAS(OPT_PROBES_UDP))
-			{
-				if (setsockopt(gctx.sendsockfd, IPPROTO_IP, IP_TTL,
-				(int[]){gctx.hop}, sizeof(int)) < 0)
-				{
-					st = ERR_SYSCALL;
-        			PRINT_ERROR(MSG_ERROR_SYSCALL, "setsockopt", errno);
-					goto end;
-				}
-			}
 		}
 		goto end;
 	}
 
 	in_addr_t saddr = (*(struct sockaddr_in*)&gctx.recv_sockaddr).sin_addr.s_addr;
 
-	///TODO: TODO
-	if (1||findhost(prev, arrhostlen(prev), saddr) == NULL)
+	///TODO: TODO sometimes this is good sometimes not ...
+	if (0||findhost(prev, arrhostlen(prev), saddr) == NULL)
 	{
 		const size_t	len = arrhostlen(hostarr);
 		host_t*			found;
@@ -96,7 +86,13 @@ static error_type print_iteration(int8_t code)
 
 		uint64_t prevprobescount = gctx.probescount;
 		if (code == NOCODE || (OPT_HAS(OPT_PROBES_UDP) && code == ICMP_PORT_UNREACH))
+		{
 			gctx.probescount++;
+			unreach_raw = 0;
+		}
+		else
+			unreach_raw++;
+		
 
 		if (prevprobescount != gctx.probescount
 		&& gctx.probescount % gctx.parse.opts_args.probes_nb_per_hop == 0)
@@ -107,23 +103,27 @@ static error_type print_iteration(int8_t code)
 				goto end;
 			ft_memset(hostarr, 0, arrhostlen(hostarr) * sizeof(host_t));
 			gctx.hop++;
+		}
+		/* Trigerred when the destination is unreachable */
+		else if (unreach_raw && unreach_raw % gctx.parse.opts_args.probes_nb_per_hop == 0)
+		{
+			unreach_raw = 0;
 
-			if (OPT_HAS(OPT_PROBES_UDP))
-			{
-				if (setsockopt(gctx.sendsockfd, IPPROTO_IP, IP_TTL,
-				(int[]){gctx.hop}, sizeof(int)) < 0)
-				{
-					st = ERR_SYSCALL;
-        			PRINT_ERROR(MSG_ERROR_SYSCALL, "setsockopt", errno);
-					goto end;
-				}
-			}
+			host_t dest[MAX_HOSTS];
+
+			arrhostcpynontimeout(dest, hostarr);
+
+			ft_memset(prev, 0, arrhostlen(prev) * sizeof(host_t));
+			ft_memcpy(prev, hostarr, arrhostlen(hostarr) * sizeof(host_t));
+
+			if (print_hostarr(dest) == false)
+				goto end;
+			ft_memset(hostarr, 0, arrhostlen(hostarr) * sizeof(host_t));
+			st = DEST_UNREACH;
 		}
 	}
 	else
-	{
-		printf("[DEBUG] Filter has blocked a duplicated from a previous hop\n");
-	}
+		st = KEEP_RCV;
 end:
 	return st;
 }
@@ -131,6 +131,7 @@ end:
 error_type print_route4(const void* const recvbuff, ssize_t bufflen)
 {
 	error_type			st = CONTINUE;
+	error_type			pst = SUCCESS;
 	static uint32_t		itearation = 0;
 
 	const struct iphdr* const ip = (struct iphdr*)recvbuff;
@@ -143,34 +144,46 @@ error_type print_route4(const void* const recvbuff, ssize_t bufflen)
 	}
 
 	if (ip->version != 4)
+	{
+		st = KEEP_RCV;
 		goto error;
-	
+	}
+
 	if (OPT_HAS(OPT_PROBES_TCP) && ip->protocol == IPPROTO_TCP)
 	{
 		if (bufflen < (ip->ihl * 4) + (uint32_t)sizeof(struct tcphdr))
+		{
+			st = KEEP_RCV;
 			goto error;
+		}
 
 		const struct tcphdr* const tcp = (struct tcphdr*)(recvbuff + ip->ihl * 4);
 
-		///TODO: If syn/ack port is open, else if rst port is closed
-		///TODO: Alse i can receive just a syn, port is open (simultaneous open or split handshake connection)
+		///NOTE: Syn/Ack -> Port is open
+		///NOTE: Rst -> Port is closed
+		///NOTE: Syn -> Port is open (rare case: simultaneous open or split handshake connection)
 		if (ip->saddr == (*(struct sockaddr_in*)&gctx.dest_sockaddr).sin_addr.s_addr
-			&& ((tcp->ack && tcp->syn)))
+		&& ((tcp->ack && tcp->syn) || (tcp->rst) || (tcp->syn)))
 		{
+			gctx.use_recvtcp = true;
+
 			if (++itearation <= gctx.parse.opts_args.probes_nb_per_hop
-			&& print_iteration(NOCODE) != SUCCESS)
+			&& (pst = print_iteration(NOCODE)) != SUCCESS)
 			{
-				st = ERR_SYSCALL;
+				st = pst == KEEP_RCV ? KEEP_RCV : ERR_SYSCALL;
 				goto error;
 			}
+
 			if (itearation == gctx.parse.opts_args.probes_nb_per_hop)
 				st = SUCCESS;
 			else
 				st = CONTINUE;
-			goto error;
 
 			cut_connectiontcp_rst(ip->saddr);
+			goto error;
 		}
+		else
+			st = KEEP_RCV;
 	}
 	else if (ip->protocol == IPPROTO_ICMP)
 	{
@@ -185,9 +198,12 @@ error_type print_route4(const void* const recvbuff, ssize_t bufflen)
 				if (OPT_HAS(OPT_PROBES_UDP) == false
 				|| ip->saddr != (*(struct sockaddr_in*)&gctx.dest_sockaddr).sin_addr.s_addr)
 				{
-					if (print_iteration(icp->code) != SUCCESS)
+					if ((pst = print_iteration(icp->code)) != SUCCESS)
 					{
-						st = ERR_SYSCALL;
+						if (pst == DEST_UNREACH)
+							st = SUCCESS;
+						else
+							st = pst == KEEP_RCV ? KEEP_RCV : ERR_SYSCALL;
 						goto error;
 					}
 				}
@@ -195,9 +211,9 @@ error_type print_route4(const void* const recvbuff, ssize_t bufflen)
 				{
 					if (++itearation <= gctx.parse.opts_args.probes_nb_per_hop)
 					{
-						if (print_iteration(NOCODE) != SUCCESS)
+						if ((pst = print_iteration(NOCODE)) != SUCCESS)
 						{
-							st = ERR_SYSCALL;
+							st = pst == KEEP_RCV ? KEEP_RCV : ERR_SYSCALL;
 							goto error;
 						}
 					}
@@ -215,17 +231,15 @@ error_type print_route4(const void* const recvbuff, ssize_t bufflen)
 				{
 					if (icp->code == ICMP_EXC_TTL)
 					{
-						if (print_iteration(NOCODE) != SUCCESS)
+						if ((pst = print_iteration(NOCODE)) != SUCCESS)
 						{
-							st = ERR_SYSCALL;
+							st = pst == KEEP_RCV ? KEEP_RCV : ERR_SYSCALL;
 							goto error;
 						}
 					}
 				}
 				else
-					{
-						printf("[DEBUG] Ignore packet that is not mine (%d - %d)\n", ((struct udphdr*)(recvbuff + iphlen + sizeof(*icp) + iphlen_old))->dest, ntohs(gctx.destport));
-					}
+					st = KEEP_RCV;
 
 				break ;
 
@@ -236,9 +250,9 @@ error_type print_route4(const void* const recvbuff, ssize_t bufflen)
 				{
 					if (++itearation <= gctx.parse.opts_args.probes_nb_per_hop)
 					{
-						if (print_iteration(NOCODE) != SUCCESS)
+						if ((pst = print_iteration(NOCODE)) != SUCCESS)
 						{
-							st = ERR_SYSCALL;
+							st = pst == KEEP_RCV ? KEEP_RCV : ERR_SYSCALL;
 							goto error;
 						}
 					}
@@ -246,17 +260,14 @@ error_type print_route4(const void* const recvbuff, ssize_t bufflen)
 						st = SUCCESS;
 				}
 				else
-				{
-					printf("[DEBUG] ICMP DEST ADDR != FOUND\n");
-				}
+					st = KEEP_RCV;
 				break ;
 
 			default:	
-				printf("other icmp type is %d\n", icp->type);
+				st = KEEP_RCV;
 				break ;
 		}
 	}
-		///NOTE: TCP still been blocked maybe check NAT(?)
 
 error:
 	return st;

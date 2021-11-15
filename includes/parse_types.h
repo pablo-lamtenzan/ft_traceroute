@@ -2,6 +2,7 @@
 # pragma once
 
 # include <inttypes.h>
+# include <stdbool.h>
 
 typedef enum	opt
 {
@@ -41,5 +42,4 @@ typedef struct	parse
 	opts_arg_t	opts_args;	
 }				parse_t;
 
-# include <stdbool.h>
 bool            is_string_digit(const char* s);

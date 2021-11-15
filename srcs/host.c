@@ -24,6 +24,17 @@ size_t arrhostlen(const host_t* const arrhost)
     return i > MAX_HOSTS ? MAX_HOSTS : i;
 }
 
+void arrhostcpynontimeout(host_t* dest, const host_t* src)
+{
+	size_t y = 0;
+
+	for (size_t i = 0 ; src[i].saddr != 0 ; i++)
+	{
+		if (src[i].istimeout == false)
+			dest[y++] = src[i];
+	}
+}
+
 size_t timesplen(timestamp_t* const timestaparr)
 {
     size_t i = 0;
