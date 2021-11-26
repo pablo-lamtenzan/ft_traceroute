@@ -50,7 +50,10 @@ static error_type print_iteration(int8_t code)
 			ft_memset(prev, 0, arrhostlen(prev) * sizeof(host_t));
 			ft_memcpy(prev, hostarr, arrhostlen(hostarr) * sizeof(host_t));
 			if (print_hostarr(hostarr) == false)
+			{
+				st = CONTINUE;
 				goto end;
+			}
 			ft_memset(hostarr, 0, arrhostlen(hostarr) * sizeof(host_t));
 			gctx.hop++;
 		}
@@ -100,7 +103,10 @@ static error_type print_iteration(int8_t code)
 			ft_memset(prev, 0, arrhostlen(prev) * sizeof(host_t));
 			ft_memcpy(prev, hostarr, arrhostlen(hostarr) * sizeof(host_t));
 			if (print_hostarr(hostarr) == false)
+			{
+				st = CONTINUE;
 				goto end;
+			}
 			ft_memset(hostarr, 0, arrhostlen(hostarr) * sizeof(host_t));
 			gctx.hop++;
 		}
@@ -117,7 +123,10 @@ static error_type print_iteration(int8_t code)
 			ft_memcpy(prev, hostarr, arrhostlen(hostarr) * sizeof(host_t));
 
 			if (print_hostarr(dest) == false)
+			{
+				st = CONTINUE;
 				goto end;
+			}
 			ft_memset(hostarr, 0, arrhostlen(hostarr) * sizeof(host_t));
 			st = DEST_UNREACH;
 		}
@@ -222,7 +231,7 @@ error_type print_route4(const void* const recvbuff, ssize_t bufflen)
 				}
 				break ;
 
-			case ICMP_TIME_EXCEEDED:
+			case ICMP_TIME_EXCEEDED: ;
 				size_t iphlen = ip->ihl * 4;
 				size_t iphlen_old = ((struct iphdr*)(recvbuff + iphlen + sizeof(*icp)))->ihl * 4;
 				if (((struct icmphdr*)(recvbuff + iphlen + sizeof(*icp) + iphlen_old))->un.echo.id == gctx.progid

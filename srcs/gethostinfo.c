@@ -6,12 +6,6 @@
 # include <sys/socket.h>
 # include <errno.h>
 
-# include <string.h>
-
-/// Unused
-error_type gethostinfo_i32_4(void* inaddr_ptr,  uint8_t* const destdns, int8_t* const destip)
-{ return gethostinfo_str4(inet_ntoa(*(struct in_addr*)inaddr_ptr), destdns, destip); }
-
 /**
  * 	@brief set in the global context information
  * 	about the given @p hostname.

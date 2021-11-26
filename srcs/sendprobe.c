@@ -127,7 +127,7 @@ uint16_t tcp_checksum(const struct iphdr* const ip)
 	static in_addr_t myip = INADDR_ANY;
 
 	if (myip == INADDR_ANY)
-		myip = get_ip_by_if("wlp2s0");
+		myip = get_ip_by_if("eth0");
 
 	/* Prepend pseudo ip header */
 

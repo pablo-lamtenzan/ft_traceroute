@@ -9,16 +9,6 @@
 # include <time.h>
 # include <stdlib.h>
 
-///TODO: TEST FLAGS AND FUCNTIONALITY
-
-///TODO: Check for TODO's accross the code
-
-///TODO: I got a filter for duplicates ips ... I guess i must test at 42
-
-///TODO: When i get my ip for tcp checksum the interface can change ...
-/// Use the interface that the docker will provide
-
-
 # define PRINT_HEADER(dns, ip, maxhops, packsz) (							\
 		printf(__progname " to %s (%s), %lu hops max, %lu byte packets\n",	\
 		dns, ip, maxhops, packsz)											\
@@ -140,14 +130,13 @@ int		main(int ac, const char* av[])
 	static uint8_t	recvbuff[MAX_PACKET_LEN];
 	ssize_t			receiv_bytes = 0;
 
-	for ( ; gctx.hop < gctx.hop_max ; )
+	for ( ; gctx.hop <= gctx.hop_max ; )
 	{
-
 		if (st != KEEP_RCV)
 			gctx.send_probes();
 
 		if ((st = receive_probe(recvbuff, ARRAYSIZE(recvbuff), &receiv_bytes)) != SUCCESS
-		|| (st = gctx.print_route(recvbuff, receiv_bytes)) != CONTINUE && st != KEEP_RCV)
+		|| ((st = gctx.print_route(recvbuff, receiv_bytes)) != CONTINUE && st != KEEP_RCV))
 			goto error;
 
 		ft_memset(recvbuff, 0, receiv_bytes);

@@ -23,7 +23,7 @@ $(OBJDIR):
 
 $(OBJDIR)/%.o : $(SRCDIR)/%.c 
 	@mkdir -p $(shell dirname $@)
-	@$(CC) -c -o $@  $(IFLAGS) $<
+	@$(CC) -c -o $@ $(CFLAGS) $(IFLAGS) $<
 	@echo CC $<
 
 clean:

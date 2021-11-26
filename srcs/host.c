@@ -125,13 +125,10 @@ bool print_hostarr(const host_t* const hostarr)
             continue ;
         }
 
-        if (getnameinfo(&hostarr[i].skaddr, sizeof(hostarr[i].skaddr), (char*)&gctx.dest_dns, ARRAYSIZE(gctx.dest_dns), 0, 0, 0) != 0)
-		{
-			PRINT_ERROR(MSG_ERROR_SYSCALL, "getnameinfo", errno);
-			return false;
-		}
+		bool isvalidname = getnameinfo(&hostarr[i].skaddr, sizeof(hostarr[i].skaddr), (char*)&gctx.dest_dns, ARRAYSIZE(gctx.dest_dns), 0, 0, 0) == 0;
 
-        PRINT_HOST_INFO(gctx.dest_dns, inet_ntoa((*(struct sockaddr_in*)&hostarr[i].skaddr).sin_addr));
+		char* ip = inet_ntoa((*(struct sockaddr_in*)&hostarr[i].skaddr).sin_addr);
+        PRINT_HOST_INFO(isvalidname ? (char*)gctx.dest_dns : ip, ip);
 
         for (size_t y = 0 ; hostarr[i].times[y].t != 0 ; y++)
         {
